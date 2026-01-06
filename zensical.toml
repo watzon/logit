@@ -7,37 +7,57 @@ site_description = "Annotation-based logging library for Crystal with OpenTeleme
 site_author = "watzon"
 site_url = "https://watzon.github.io/logit/"
 repo_url = "https://github.com/watzon/logit"
-repo_name = "watzon/logit"
 edit_uri = "edit/main/docs/"
 copyright = "Copyright &copy; 2025 watzon"
 
-[theme]
-name = "material"
-language = "en"
-favicon = ""
-logo = ""
+extra_css = ["stylesheets/extra.css"]
 
-[theme.palette]
+[project.theme]
+language = "en"
+
+features = [
+    "content.code.annotate",
+    "content.code.copy",
+    "content.code.select",
+    "navigation.instant",
+    "navigation.instant.prefetch",
+    "navigation.tracking",
+    "navigation.sections",
+    "navigation.path",
+    "navigation.top",
+    "navigation.footer",
+    "search.highlight",
+    "toc.follow",
+]
+
+# Color scheme - dark mode first (default)
+[[project.theme.palette]]
 scheme = "slate"
 primary = "deep purple"
 accent = "purple"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to light mode"
 
-[theme.features]
-content_code_copy = true
-content_code_annotate = true
-navigation_instant = true
-navigation_instant_prefetch = true
-navigation_tracking = true
-navigation_sections = true
-navigation_path = true
-navigation_top = true
-navigation_footer = true
-search_highlight = true
-toc_follow = true
+[[project.theme.palette]]
+scheme = "default"
+primary = "deep purple"
+accent = "purple"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to dark mode"
 
-[extra]
-social = [
-  { icon = "fontawesome/brands/github", link = "https://github.com/watzon/logit" }
-]
+# Social links
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/watzon/logit"
 
-extra_css = ["stylesheets/extra.css"]
+# Markdown extensions for syntax highlighting
+[project.markdown_extensions.pymdownx.highlight]
+anchor_linenums = true
+line_spans = "__span"
+pygments_lang_class = true
+
+[project.markdown_extensions.pymdownx.inlinehilite]
+
+[project.markdown_extensions.pymdownx.superfences]
+
+[project.markdown_extensions.pymdownx.snippets]
