@@ -65,12 +65,10 @@ end
 
 ### Annotation-Based Instrumentation
 
-Include the `Logit::Instrumentation` module in your class, annotate methods with `@[Logit::Log]`, and call `Logit.setup_instrumentation` **after** all methods are defined:
+Simply annotate methods with `@[Logit::Log]` - no includes or setup calls required:
 
 ```crystal
 class Calculator
-  include Logit::Instrumentation
-
   @[Logit::Log]
   def add(x : Int32, y : Int32) : Int32
     x + y
@@ -80,9 +78,6 @@ class Calculator
   def divide(x : Int32, y : Int32) : Float64
     x / y
   end
-
-  # Must be called after all methods are defined
-  Logit.setup_instrumentation(Calculator)
 end
 
 calc = Calculator.new
@@ -127,8 +122,6 @@ end
 
 ```crystal
 class UserService
-  include Logit::Instrumentation
-
   # Don't log arguments, use custom span name
   @[Logit::Log(log_args: false, name: "user.lookup")]
   def find_user(id : Int64) : User?
@@ -140,8 +133,6 @@ class UserService
   def fetch_all_users : Array(User)
     # ...
   end
-
-  Logit.setup_instrumentation(UserService)
 end
 ```
 
@@ -151,8 +142,6 @@ Logit supports OpenTelemetry semantic conventions. Set attributes on spans withi
 
 ```crystal
 class PaymentService
-  include Logit::Instrumentation
-
   @[Logit::Log]
   def process_payment(user_id : Int64, amount : Int64) : Bool
     # Access current span
@@ -166,8 +155,6 @@ class PaymentService
     # Your business logic here
     true
   end
-
-  Logit.setup_instrumentation(PaymentService)
 end
 ```
 
