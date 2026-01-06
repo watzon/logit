@@ -1,0 +1,43 @@
+# Zensical documentation configuration for Logit
+# https://zensical.org
+
+[project]
+site_name = "Logit"
+site_description = "Annotation-based logging library for Crystal with OpenTelemetry support"
+site_author = "watzon"
+site_url = "https://watzon.github.io/logit/"
+repo_url = "https://github.com/watzon/logit"
+repo_name = "watzon/logit"
+edit_uri = "edit/main/docs/"
+copyright = "Copyright &copy; 2025 watzon"
+
+[theme]
+name = "material"
+language = "en"
+favicon = ""
+logo = ""
+
+[theme.palette]
+scheme = "slate"
+primary = "deep purple"
+accent = "purple"
+
+[theme.features]
+content_code_copy = true
+content_code_annotate = true
+navigation_instant = true
+navigation_instant_prefetch = true
+navigation_tracking = true
+navigation_sections = true
+navigation_path = true
+navigation_top = true
+navigation_footer = true
+search_highlight = true
+toc_follow = true
+
+[extra]
+social = [
+  { icon = "fontawesome/brands/github", link = "https://github.com/watzon/logit" }
+]
+
+extra_css = ["stylesheets/extra.css"]
