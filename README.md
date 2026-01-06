@@ -9,6 +9,7 @@
 - [Usage](#usage)
   - [Basic Setup](#basic-setup)
   - [Annotation-Based Instrumentation](#annotation-based-instrumentation)
+  - [Namespace Filtering](#namespace-filtering)
   - [Configuration Options](#configuration-options)
   - [OpenTelemetry Attributes](#opentelemetry-attributes)
 - [API](#api)
@@ -91,6 +92,58 @@ Output (Human formatter):
 [INFO] 2025-01-05T21:30:00.123Z Calculator.add duration=2ms args={x: 5, y: 3} return=8
 [INFO] 2025-01-05T21:30:00.125Z Calculator.divide duration=1ms args={x: 10, y: 2} return=5.0
 ```
+
+### Namespace Filtering
+
+Logit supports namespace-based filtering, allowing libraries to use Logit internally while giving applications control over which logs they see. This is similar to Crystal's built-in `Log` library.
+
+```crystal
+Logit.configure do |c|
+  console = c.console(Logit::LogLevel::Info)
+
+  # Log everything at Info level or above
+  c.bind "*", LogLevel::Info, console
+
+  # Enable Debug logging for HTTP library
+  c.bind "MyLib::HTTP::*", LogLevel::Debug, console
+
+  # Reduce noise from database library
+  c.bind "MyLib::DB::*", LogLevel::Warn, console
+end
+```
+
+#### Pattern Syntax
+
+- **Exact match**: `"MyLib::HTTP"` matches only `MyLib::HTTP`
+- **Single wildcard (`*`)**: Matches a single component
+  - `"MyLib::*"` matches `MyLib::HTTP` but not `MyLib::HTTP::Client`
+  - `"MyLib::HTTP::*"` matches `MyLib::HTTP::Client` but not `MyLib::HTTP::Client::V2`
+- **Multi wildcard (`**`)**: Matches zero or more components
+  - `"MyLib::**"` matches `MyLib::HTTP`, `MyLib::HTTP::Client`, etc.
+  - `"**"` matches everything (root namespace)
+
+#### Multiple Backends
+
+Different backends can have different namespace bindings:
+
+```crystal
+Logit.configure do |c|
+  console = c.console(Logit::LogLevel::Info)
+  file = c.file("/var/log/app.log", LogLevel::Debug)
+
+  # Console: only show warnings from database
+  c.bind "MyLib::DB::*", LogLevel::Warn, console
+
+  # File: log everything including debug from database
+  c.bind "MyLib::DB::*", LogLevel::Debug, file
+end
+```
+
+#### Matching Rules
+
+- **Most specific wins**: When multiple patterns match, the longest (most specific) pattern takes precedence
+- **Unmatched namespaces**: Use the backend's default level
+- **Per-backend**: Bindings are scoped to each backend independently
 
 ### Configuration Options
 
@@ -195,6 +248,19 @@ Logit.configure do |config|
   config.file("/path/to/log", LogLevel::Warn)
 end
 ```
+
+### `Logit.Config#bind`
+
+Bind a namespace pattern to a log level for a specific backend.
+
+```crystal
+config.bind("MyLib::**", LogLevel::Debug, backend)
+```
+
+Parameters:
+- `pattern` : String - Glob pattern for namespace matching
+- `level` : LogLevel - Minimum log level for matching namespaces
+- `backend` : Backend - Backend to apply the binding to
 
 ### `Logit::LogLevel`
 

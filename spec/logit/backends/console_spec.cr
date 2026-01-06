@@ -65,6 +65,7 @@ class Logit::Backend::Console
   property log_io : IO?
 
   def initialize(@name = "console", @level = Logit::LogLevel::Info, @formatter = Logit::Formatter::Human.new)
+    @bindings = [] of Logit::NamespaceBinding
     @log_io = STDOUT
   end
 

@@ -21,8 +21,9 @@ describe Logit::Config do
   describe "#console" do
     it "adds a console backend" do
       config = Logit::Config.new
-      config.console(Logit::LogLevel::Debug)
+      backend = config.console(Logit::LogLevel::Debug)
 
+      backend.should be_a(Logit::Backend::Console)
       tracer = config.tracers[config.default_tracer_name]?
       tracer.should_not be_nil
       tracer.not_nil!.backends.size.should be >= 1
@@ -31,8 +32,9 @@ describe Logit::Config do
     it "accepts a custom formatter" do
       config = Logit::Config.new
       formatter = Logit::Formatter::JSON.new
-      config.console(Logit::LogLevel::Info, formatter)
+      backend = config.console(Logit::LogLevel::Info, formatter)
 
+      backend.should be_a(Logit::Backend::Console)
       tracer = config.tracers[config.default_tracer_name]?
       tracer.should_not be_nil
       tracer.not_nil!.backends.size.should be >= 1
@@ -44,8 +46,9 @@ describe Logit::Config do
       path = "/tmp/logtest-#{Random::Secure.hex(8)}.log"
       begin
         config = Logit::Config.new
-        config.file(path, Logit::LogLevel::Info)
+        backend = config.file(path, Logit::LogLevel::Info)
 
+        backend.should be_a(Logit::Backend::File)
         tracer = config.tracers[config.default_tracer_name]?
         tracer.should_not be_nil
         tracer.not_nil!.backends.size.should be >= 1
@@ -86,6 +89,40 @@ describe Logit::Config do
       tracer = config.tracers[config.default_tracer_name]?
       tracer.should_not be_nil
       tracer.not_nil!.name.should eq(config.default_tracer_name)
+    end
+  end
+
+  describe "#bind" do
+    it "binds namespace to backend" do
+      config = Logit::Config.new
+      backend = Logit::Backend::Console.new("console", Logit::LogLevel::Info)
+
+      config.bind("MyLib::*", Logit::LogLevel::Debug, backend)
+
+      backend.bindings.size.should eq(1)
+      backend.bindings[0].level.should eq(Logit::LogLevel::Debug)
+    end
+
+    it "chains with console method" do
+      config = Logit::Config.new
+      backend = config.console(Logit::LogLevel::Info)
+      config.bind("MyLib::*", Logit::LogLevel::Debug, backend)
+
+      backend.bindings.size.should eq(1)
+    end
+
+    it "chains with file method" do
+      path = "/tmp/logtest-#{Random::Secure.hex(8)}.log"
+      begin
+        config = Logit::Config.new
+        backend = config.file(path, Logit::LogLevel::Info)
+        config.bind("MyLib::**", Logit::LogLevel::Warn, backend)
+
+        backend.bindings.size.should eq(1)
+        backend.bindings[0].pattern.should eq("MyLib::**")
+      ensure
+        File.delete(path) if File.exists?(path)
+      end
     end
   end
 

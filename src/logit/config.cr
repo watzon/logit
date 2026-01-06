@@ -1,5 +1,6 @@
 require "./tracing/tracer"
 require "./backend"
+require "./namespace_binding"
 require "./backends/console"
 require "./backends/file"
 require "./formatter"
@@ -21,14 +22,16 @@ module Logit
       config
     end
 
-    def console(level = LogLevel::Info, formatter = Formatter::Human.new) : Nil
+    def console(level = LogLevel::Info, formatter = Formatter::Human.new) : Backend::Console
       backend = Backend::Console.new("console", level, formatter)
       add_backend(backend)
+      backend
     end
 
-    def file(path : String, level = LogLevel::Info) : Nil
+    def file(path : String, level = LogLevel::Info) : Backend::File
       backend = Backend::File.new(path, "file", level)
       add_backend(backend)
+      backend
     end
 
     def add_tracer(name : String, tracer : Tracer) : Nil
@@ -42,6 +45,11 @@ module Logit
         @tracers[@default_tracer_name] = tracer
       end
       tracer.add_backend(backend)
+    end
+
+    # Bind a namespace pattern to a log level for a specific backend
+    def bind(pattern : String, level : LogLevel, backend : Backend) : Nil
+      backend.bind(pattern, level)
     end
 
     def build : Nil
