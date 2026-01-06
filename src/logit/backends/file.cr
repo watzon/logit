@@ -3,12 +3,54 @@ require "../utils/safe_output"
 require "./buffered"
 
 module Logit
+  # Backend that writes log events to a file.
+  #
+  # Uses the `Formatter::JSON` formatter by default, which produces structured
+  # JSON output suitable for log aggregation and analysis systems.
+  #
+  # ## Basic Usage
+  #
+  # ```crystal
+  # Logit.configure do |config|
+  #   config.file("logs/app.log", level: Logit::LogLevel::Debug)
+  # end
+  # ```
+  #
+  # ## Security Features
+  #
+  # - Files are created with mode 0o600 (owner read/write only) by default
+  # - Symlinks are not followed by default (prevents log injection attacks)
+  # - Parent directory must exist (prevents path traversal)
+  #
+  # ## Custom Configuration
+  #
+  # ```crystal
+  # backend = Logit::Backend::File.new(
+  #   path: "logs/audit.log",
+  #   name: "audit",
+  #   level: Logit::LogLevel::Info,
+  #   formatter: Logit::Formatter::Human.new,
+  #   mode: 0o644,           # World-readable
+  #   follow_symlinks: true  # Allow symlinks
+  # )
+  # ```
+  #
+  # ## Output Example (JSON formatter)
+  #
+  # ```json
+  # {"trace_id":"abc...","span_id":"def...","name":"find_user","level":"info",...}
+  # ```
   class Backend::File < Logit::Backend
     include BufferedIO
+
+    # Raised when the log file path is invalid.
     class InvalidPathError < Exception; end
+
+    # Raised when the path is a symlink and follow_symlinks is false.
     class SymlinkError < Exception; end
 
-    DEFAULT_FILE_MODE = 0o600  # Owner read/write only
+    # Default file permission mode (owner read/write only).
+    DEFAULT_FILE_MODE = 0o600
 
     @path : String
     @file : ::File
@@ -16,6 +58,17 @@ module Logit
     @mode : Int32
     @follow_symlinks : Bool
 
+    # Creates a new file backend.
+    #
+    # - *path*: Path to the log file (will be created if it doesn't exist)
+    # - *name*: Backend name for identification (default: "file")
+    # - *level*: Minimum log level (default: Info)
+    # - *formatter*: Output formatter (default: JSON)
+    # - *mode*: File permission mode for new files (default: 0o600)
+    # - *follow_symlinks*: Whether to allow symlink paths (default: false)
+    #
+    # Raises `InvalidPathError` if the path is invalid or cannot be opened.
+    # Raises `SymlinkError` if the path is a symlink and follow_symlinks is false.
     def initialize(@path : String, @name = "file", @level = LogLevel::Info,
                    @formatter : Formatter? = Formatter::JSON.new,
                    mode : Int32 = DEFAULT_FILE_MODE,
@@ -28,6 +81,7 @@ module Logit
       @file = open_with_permissions(@path)
     end
 
+    # Logs an event to the file.
     def log(event : Event) : Nil
       return unless should_log?(event)
 
@@ -35,10 +89,12 @@ module Logit
       buffered_write(@file, formatted)
     end
 
+    # Flushes the output buffer to disk.
     def flush : Nil
       flush_buffer(@file)
     end
 
+    # Closes the file handle, flushing any remaining buffered data.
     def close : Nil
       flush
       @file.close

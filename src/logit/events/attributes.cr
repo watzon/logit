@@ -2,49 +2,103 @@ require "json"
 
 module Logit
   struct Event
-    # Type-safe attribute storage using JSON::Any for arbitrary structured data
+    # Type-safe structured attribute storage for log events.
+    #
+    # Attributes provide a way to attach arbitrary structured data to log
+    # events. Values are stored as `JSON::Any` for flexibility while maintaining
+    # type safety through the setter methods.
+    #
+    # ## Setting Attributes
+    #
+    # Use the type-specific `set` methods for primitive types:
+    #
+    # ```crystal
+    # attrs = Logit::Event::Attributes.new
+    #
+    # # Primitive types
+    # attrs.set("user.name", "alice")
+    # attrs.set("user.age", 30_i64)
+    # attrs.set("request.latency", 0.042)
+    # attrs.set("user.active", true)
+    # ```
+    #
+    # Use `set_object` and `set_array` for complex structures:
+    #
+    # ```crystal
+    # attrs.set_object("user", name: "alice", role: "admin")
+    # attrs.set_array("tags", "production", "critical")
+    # ```
+    #
+    # Use `set_any` for any JSON-serializable type:
+    #
+    # ```crystal
+    # attrs.set_any("config", my_config_object)
+    # ```
+    #
+    # ## Getting Attributes
+    #
+    # ```crystal
+    # if value = attrs.get("user.name")
+    #   puts value.as_s  # => "alice"
+    # end
+    # ```
     class Attributes
+      # The underlying attribute storage.
       property values : Hash(String, JSON::Any)
 
+      # Creates a new empty Attributes instance.
       def initialize
         @values = {} of String => JSON::Any
       end
 
-      # Type-safe setters that convert to JSON::Any
+      # Sets a string attribute.
       def set(key : String, value : String) : Nil
         @values[key] = JSON::Any.new(value)
       end
 
+      # Sets an integer attribute.
       def set(key : String, value : Int32 | Int64) : Nil
         @values[key] = JSON::Any.new(value.to_i64)
       end
 
+      # Sets a float attribute.
       def set(key : String, value : Float32 | Float64) : Nil
         @values[key] = JSON::Any.new(value.to_f64)
       end
 
+      # Sets a boolean attribute.
       def set(key : String, value : Bool) : Nil
         @values[key] = JSON::Any.new(value)
       end
 
+      # Sets a nil attribute.
       def set(key : String, value : Nil) : Nil
         @values[key] = JSON::Any.new(value)
       end
 
+      # Sets an array attribute.
       def set(key : String, value : Array(JSON::Any)) : Nil
         @values[key] = JSON::Any.new(value)
       end
 
+      # Sets a hash attribute.
       def set(key : String, value : Hash(String, JSON::Any)) : Nil
         @values[key] = JSON::Any.new(value)
       end
 
-      # Generic setter for any JSON-serializable type
+      # Sets an attribute from any JSON-serializable value.
+      #
+      # Use this for custom types that implement `to_json`.
       def set_any(key : String, value : _) : Nil
         @values[key] = to_json_any(value)
       end
 
-      # Convenience setters for complex types
+      # Sets a nested object attribute from named arguments.
+      #
+      # ```crystal
+      # attrs.set_object("http", method: "POST", status: 200)
+      # # Results in: {"http": {"method": "POST", "status": 200}}
+      # ```
       def set_object(key : String, **values) : Nil
         hash = {} of String => JSON::Any
         values.each do |k, v|
@@ -53,12 +107,18 @@ module Logit
         @values[key] = JSON::Any.new(hash)
       end
 
+      # Sets an array attribute from variadic arguments.
+      #
+      # ```crystal
+      # attrs.set_array("tags", "web", "api", "v2")
+      # # Results in: {"tags": ["web", "api", "v2"]}
+      # ```
       def set_array(key : String, *values) : Nil
         array = values.to_a.map { |v| to_json_any(v) }
         @values[key] = JSON::Any.new(array)
       end
 
-      # Getters
+      # Gets an attribute value, returning nil if not found or if the value is null.
       def get(key : String) : JSON::Any?
         val = @values[key]?
         return nil if val.nil?
@@ -68,6 +128,7 @@ module Logit
         val
       end
 
+      # Alias for `get`.
       def get?(key : String) : JSON::Any?
         get(key)
       end
