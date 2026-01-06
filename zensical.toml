@@ -33,15 +33,15 @@ features = [
 # Color scheme - dark mode first (default)
 [[project.theme.palette]]
 scheme = "slate"
-primary = "deep purple"
-accent = "purple"
+primary = "blue grey"
+accent = "teal"
 toggle.icon = "lucide/sun"
 toggle.name = "Switch to light mode"
 
 [[project.theme.palette]]
 scheme = "default"
-primary = "deep purple"
-accent = "purple"
+primary = "blue grey"
+accent = "teal"
 toggle.icon = "lucide/moon"
 toggle.name = "Switch to dark mode"
 
