@@ -11,6 +11,7 @@ Complete API documentation for Logit, auto-generated from source code.
 - [`Context`](logit-context.md) - <p>Manages contextual data that is automatically included in log events.</p>
 - [`File`](logit-backend-file.md) - <p>Backend that writes log events to a file.</p>
 - [`Formatter`](logit-formatter.md) *(abstract)* - <p>Abstract base class for log event formatters.</p>
+- [`OTLP`](logit-backend-otlp.md) - <p>Backend that exports logs to an OpenTelemetry collector via OTLP/HTTP.</p>
 - [`Human`](logit-formatter-human.md) - <p>Human-readable formatter with colorized output.</p>
 - [`JSON`](logit-formatter-json.md) - <p>JSON formatter for structured log output.</p>
 - [`Redaction`](logit-redaction.md) - <p>Manages sensitive data redaction for log output.</p>

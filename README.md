@@ -156,6 +156,22 @@ Logit.configure do |config|
 end
 ```
 
+#### OpenTelemetry Export
+
+Send logs directly to an OpenTelemetry collector:
+
+```crystal
+Logit.configure do |config|
+  config.otlp(
+    "http://localhost:4318/v1/logs",
+    resource_attributes: {
+      "service.name" => "my-app",
+      "service.version" => "1.0.0"
+    }
+  )
+end
+```
+
 #### Custom Formatters
 
 ```crystal
@@ -288,6 +304,7 @@ Logit::Tracer.default.emit(event)
 
 - **`Logit::Backend::Console`** - Outputs to STDOUT/STDERR
 - **`Logit::Backend::File`** - Outputs to a file
+- **`Logit::Backend::OTLP`** - Exports to OpenTelemetry collectors via OTLP/HTTP
 
 ### Formatters
 

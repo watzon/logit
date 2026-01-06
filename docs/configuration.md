@@ -48,6 +48,49 @@ Security features:
 - Symlinks not followed by default
 - Parent directory must exist
 
+### OTLP Backend
+
+Exports logs to an OpenTelemetry collector via OTLP/HTTP (JSON):
+
+```crystal
+Logit.configure do |config|
+  config.otlp(
+    "http://localhost:4318/v1/logs",
+    resource_attributes: {"service.name" => "my-app"}
+  )
+end
+```
+
+Options:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `endpoint` | `String` | required | OTLP HTTP endpoint URL |
+| `level` | `LogLevel` | `Info` | Minimum log level |
+| `batch_size` | `Int32` | `512` | Max events per batch |
+| `flush_interval` | `Time::Span` | `5.seconds` | Time between flushes |
+| `headers` | `Hash(String, String)` | `{}` | HTTP headers (for auth) |
+| `timeout` | `Time::Span` | `30.seconds` | HTTP request timeout |
+| `resource_attributes` | `Hash(String, String)` | `{}` | Resource attributes |
+
+With authentication:
+
+```crystal
+Logit.configure do |config|
+  config.otlp(
+    "https://otlp.example.com/v1/logs",
+    headers: {"Authorization" => "Bearer #{ENV["OTLP_TOKEN"]}"},
+    resource_attributes: {
+      "service.name" => "my-app",
+      "service.version" => "1.0.0",
+      "deployment.environment" => "production"
+    }
+  )
+end
+```
+
+The OTLP backend batches events and flushes them either when the batch size is reached or the flush interval elapses. Failed batches are logged to STDERR and dropped (no retry queue).
+
 ### Multiple Backends
 
 Use multiple backends simultaneously:

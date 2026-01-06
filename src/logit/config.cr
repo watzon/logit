@@ -3,6 +3,7 @@ require "./backend"
 require "./namespace_binding"
 require "./backends/console"
 require "./backends/file"
+require "./backends/otlp"
 require "./formatter"
 require "./formatters/human"
 require "./redaction"
@@ -113,6 +114,68 @@ module Logit
     def file(path : String, level = LogLevel::Info, buffered : Bool = true) : Backend::File
       backend = Backend::File.new(path, "file", level)
       backend.buffered = buffered
+      add_backend(backend)
+      backend
+    end
+
+    # Adds an OTLP backend that exports logs to an OpenTelemetry collector.
+    #
+    # The OTLP backend sends log events in batches via HTTP/JSON to an
+    # OpenTelemetry-compatible endpoint. Events are buffered and flushed
+    # when the batch size is reached or the flush interval elapses.
+    #
+    # - *endpoint*: OTLP HTTP endpoint URL (e.g., "http://localhost:4318/v1/logs")
+    # - *level*: Minimum log level (default: Info)
+    # - *batch_size*: Maximum events per batch (default: 512)
+    # - *flush_interval*: Time between automatic flushes (default: 5.seconds)
+    # - *headers*: HTTP headers for authentication (default: empty)
+    # - *timeout*: HTTP request timeout (default: 30.seconds)
+    # - *resource_attributes*: Resource attributes like service.name (default: empty)
+    #
+    # Returns the created backend for further configuration (e.g., namespace bindings).
+    #
+    # ```crystal
+    # Logit.configure do |config|
+    #   config.otlp(
+    #     "http://localhost:4318/v1/logs",
+    #     resource_attributes: {"service.name" => "my-app"}
+    #   )
+    # end
+    # ```
+    #
+    # With authentication:
+    #
+    # ```crystal
+    # Logit.configure do |config|
+    #   config.otlp(
+    #     "https://otlp.example.com/v1/logs",
+    #     headers: {"Authorization" => "Bearer token"},
+    #     resource_attributes: {
+    #       "service.name" => "my-app",
+    #       "deployment.environment" => "production"
+    #     }
+    #   )
+    # end
+    # ```
+    def otlp(
+      endpoint : String,
+      level = LogLevel::Info,
+      batch_size : Int32 = 512,
+      flush_interval : Time::Span = 5.seconds,
+      headers : Hash(String, String) = {} of String => String,
+      timeout : Time::Span = 30.seconds,
+      resource_attributes : Hash(String, String) = {} of String => String
+    ) : Backend::OTLP
+      config = Backend::OTLP::Config.new(
+        endpoint: endpoint,
+        batch_size: batch_size,
+        flush_interval: flush_interval,
+        headers: headers,
+        timeout: timeout,
+        resource_attributes: resource_attributes
+      )
+
+      backend = Backend::OTLP.new(config, "otlp", level)
       add_backend(backend)
       backend
     end
