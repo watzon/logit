@@ -23,10 +23,28 @@ module Logit
         {% log_return = ann && ann[:log_return] != nil ? ann[:log_return] : true %}
         {% log_exception = ann && ann[:log_exception] != nil ? ann[:log_exception] : true %}
         {% span_name = ann && ann[:name] ? ann[:name] : method_name.stringify %}
+        {% redact_list = ann && ann[:redact] ? ann[:redact] : [] of String %}
+
+        # Early level check - skip expensive span creation if no backend will log
+        unless Logit::Tracer.should_emit?(Logit::LogLevel::Info, {{type_name.stringify}})
+          return previous_def(
+            {% for arg in args %}
+              {% unless arg[:block] %}
+                {{arg[:name].id}},
+              {% end %}
+            {% end %}
+            {% if block_arg = args.find { |a| a[:block] } %}
+              &{{block_arg[:name].id}}
+            {% end %}
+          )
+        end
+
+        # Cache fiber span stack to avoid repeated Fiber.current access
+        _fiber_span_stack = Fiber.current.current_logit_span
 
         # Create and push span (trace_id is generated/inherited by Span)
         _span = Logit::Span.new({{span_name}})
-        Logit::Span.push(_span)
+        Logit::Span.push(_span, _fiber_span_stack)
 
         # Get trace_id from the span
         _trace_id = _span.trace_id
@@ -36,7 +54,12 @@ module Logit
           _span.attributes.set_object("code.arguments",
             {% for arg in args %}
               {% unless arg[:block] %}
-                {{arg[:name].stringify}}: {{arg[:name].id}},
+                {% arg_name_str = arg[:name].stringify %}
+                {% if redact_list.includes?(arg_name_str) %}
+                  {{arg_name_str}}: Logit::Redaction::REDACTED_VALUE,
+                {% else %}
+                  {{arg_name_str}}: (Logit::Redaction.should_redact?({{arg_name_str}}) ? Logit::Redaction::REDACTED_VALUE : {{arg[:name].id}}),
+                {% end %}
               {% end %}
             {% end %}
           )
@@ -98,7 +121,7 @@ module Logit
           raise ex
         ensure
           # Always pop span
-          Logit::Span.pop
+          Logit::Span.pop(_fiber_span_stack)
         end
       end
     end

@@ -39,6 +39,7 @@ macro finished
     {% log_return = ann && ann[:log_return] != nil ? ann[:log_return] : true %}
     {% log_exception = ann && ann[:log_exception] != nil ? ann[:log_exception] : true %}
     {% span_name = ann && ann[:name] ? ann[:name] : method_name_string %}
+    {% redact_list = ann && ann[:redact] ? ann[:redact] : [] of String %}
 
     # Reopen the class/struct to define wrapper
     {% if type.class? %}
@@ -47,14 +48,30 @@ macro finished
       struct {{type_name}}
     {% end %}
       def {{method_name}}({{args_splat}}) {% if return_type %}: {{return_type}}{% end %}
+        # Early level check - skip expensive span creation if no backend will log
+        unless Logit::Tracer.should_emit?(Logit::LogLevel::Info, {{type_string}})
+          return previous_def(
+            {% for arg in method.args %}
+              {{arg.name.id}},
+            {% end %}
+          )
+        end
+
+        # Cache fiber span stack to avoid repeated Fiber.current access
+        _fiber_span_stack = Fiber.current.current_logit_span
         _span = Logit::Span.new({{span_name}})
-        Logit::Span.push(_span)
+        Logit::Span.push(_span, _fiber_span_stack)
         _trace_id = _span.trace_id
 
         {% if log_args && method.args.size > 0 %}
           _span.attributes.set_object("code.arguments",
             {% for arg in method.args %}
-              {{arg.name.stringify}}: {{arg.name.id}},
+              {% arg_name_str = arg.name.stringify %}
+              {% if redact_list.includes?(arg_name_str) %}
+                {{arg_name_str}}: Logit::Redaction::REDACTED_VALUE,
+              {% else %}
+                {{arg_name_str}}: (Logit::Redaction.should_redact?({{arg_name_str}}) ? Logit::Redaction::REDACTED_VALUE : {{arg.name.id}}),
+              {% end %}
             {% end %}
           )
         {% end %}
@@ -102,7 +119,7 @@ macro finished
 
           raise ex
         ensure
-          Logit::Span.pop
+          Logit::Span.pop(_fiber_span_stack)
         end
       end
     end

@@ -5,6 +5,7 @@ require "./backends/console"
 require "./backends/file"
 require "./formatter"
 require "./formatters/human"
+require "./redaction"
 
 module Logit
   class Config
@@ -22,14 +23,16 @@ module Logit
       config
     end
 
-    def console(level = LogLevel::Info, formatter = Formatter::Human.new) : Backend::Console
+    def console(level = LogLevel::Info, formatter = Formatter::Human.new, buffered : Bool = false) : Backend::Console
       backend = Backend::Console.new("console", level, formatter)
+      backend.buffered = buffered
       add_backend(backend)
       backend
     end
 
-    def file(path : String, level = LogLevel::Info) : Backend::File
+    def file(path : String, level = LogLevel::Info, buffered : Bool = true) : Backend::File
       backend = Backend::File.new(path, "file", level)
+      backend.buffered = buffered
       add_backend(backend)
       backend
     end
@@ -50,6 +53,16 @@ module Logit
     # Bind a namespace pattern to a log level for a specific backend
     def bind(pattern : String, level : LogLevel, backend : Backend) : Nil
       backend.bind(pattern, level)
+    end
+
+    # Add global redaction patterns (affects all instrumented methods)
+    def redact_patterns(*patterns : Regex) : Nil
+      patterns.each { |p| Redaction.add_pattern(p) }
+    end
+
+    # Convenience method to enable common security patterns
+    def redact_common_patterns : Nil
+      Redaction.enable_common_patterns
     end
 
     def build : Nil

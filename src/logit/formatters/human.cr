@@ -36,16 +36,7 @@ module Logit
           io << ")"
         end
 
-        # Arguments (special handling for code.arguments)
-        if args_value = event.attributes.get("code.arguments")
-          io << "\n    "
-          io << "\e[90m" # Dark gray
-          io << "args: "
-          io << "\e[0m"
-          format_arguments(io, args_value)
-        end
-
-        # Return value (special handling for code.return)
+        # Return value on main line (special handling for code.return)
         if return_value = event.attributes.get("code.return")
           io << " "
           io << "\e[90m"
@@ -54,13 +45,22 @@ module Logit
           format_value(io, return_value)
         end
 
-        # Code location (basename only)
-        io << " "
+        # Code location (basename only) - on main line
+        io << "  "
         io << "\e[90m"
         io << basename(event.code_file)
         io << ":"
         io << event.code_line
         io << "\e[0m"
+
+        # Arguments on second line (special handling for code.arguments)
+        if args_value = event.attributes.get("code.arguments")
+          io << "\n    "
+          io << "\e[90m" # Dark gray
+          io << "args: "
+          io << "\e[0m"
+          format_arguments(io, args_value)
+        end
 
         # Exception (if any) - multi-line with proper formatting
         if ex = event.exception
@@ -102,17 +102,20 @@ module Logit
 
     private def basename(path : String) : String
       # Strip leading/trailing quotes from path (workaround for macro issue)
-      # The macro generates paths like: "/path/to/file.cr" which becomes /path/to/file.cr\" in the string
-      result = path
-      result = result[1..-1] if result[0] == '"'
+      result = path.strip
 
+      # Strip leading quote
+      result = result[1..] if result.starts_with?('"')
+
+      # Strip trailing quote
+      result = result[..-2] if result.ends_with?('"')
+
+      # Get just the filename
       parts = result.split('/')
       final_result = parts.last? || result
 
-      # Strip trailing backslash-quote (\") from result if present (3 chars: backslash + quote + quote)
-      if final_result.size >= 3 && final_result[-3] == '\\' && final_result[-2] == '"' && final_result[-1] == '"'
-        final_result = final_result[0..-4]
-      end
+      # Strip any remaining trailing quote (just in case)
+      final_result = final_result[..-2] if final_result.ends_with?('"')
 
       final_result
     end

@@ -41,6 +41,13 @@ module Logit
       event.level >= effective_level
     end
 
+    # Check if this backend would log at a given level for a namespace
+    # Used for early filtering before creating spans/events
+    def should_log_level?(level : LogLevel, namespace : String) : Bool
+      effective_level = get_level_for_namespace(namespace)
+      level >= effective_level
+    end
+
     # Get the effective log level for a given namespace
     # Returns the most specific binding level, or default level if no match
     private def get_level_for_namespace(namespace : String) : LogLevel

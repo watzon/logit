@@ -43,8 +43,18 @@ module Logit
       fiber_stack.push(span)
     end
 
+    # Optimized version that takes the span stack directly to avoid repeated Fiber.current access
+    def self.push(span : Span, fiber_stack : Array(Span)) : Nil
+      fiber_stack.push(span)
+    end
+
     def self.pop : Span?
       fiber_stack = Fiber.current.current_logit_span
+      fiber_stack.pop?
+    end
+
+    # Optimized version that takes the span stack directly to avoid repeated Fiber.current access
+    def self.pop(fiber_stack : Array(Span)) : Span?
       fiber_stack.pop?
     end
 

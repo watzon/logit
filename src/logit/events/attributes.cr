@@ -41,9 +41,7 @@ module Logit
 
       # Generic setter for any JSON-serializable type
       def set_any(key : String, value : _) : Nil
-        # Convert to JSON then parse back to get JSON::Any
-        json_str = value.to_json
-        @values[key] = JSON.parse(json_str).as(JSON::Any)
+        @values[key] = to_json_any(value)
       end
 
       # Convenience setters for complex types

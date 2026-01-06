@@ -1,84 +1,82 @@
 module Logit
   class Context
-    @@context = Hash(Fiber, Hash(String, String)).new
-    @@method_context = Hash(Fiber, Hash(String, String)).new
-
     def self.current : Hash(String, String)
       # Merge fiber context and method context, with method context taking precedence
-      method_ctx = @@method_context[Fiber.current] ||= {} of String => String
-      fiber_ctx = @@context[Fiber.current] ||= {} of String => String
+      fiber_ctx = Fiber.current.logit_fiber_context
+      method_ctx = Fiber.current.logit_method_context
       fiber_ctx.merge(method_ctx)
     end
 
     # Fiber-local context (persists across method calls in the same fiber)
     def self.set_fiber(**kwargs) : Nil
-      fiber_ctx = @@context[Fiber.current] ||= {} of String => String
+      fiber_ctx = Fiber.current.logit_fiber_context
       kwargs.each do |key, value|
         fiber_ctx[key.to_s] = value.to_s
       end
     end
 
     def self.set_fiber_hash(hash : Hash(String, String)) : Nil
-      fiber_ctx = @@context[Fiber.current] ||= {} of String => String
+      fiber_ctx = Fiber.current.logit_fiber_context
       hash.each do |key, value|
         fiber_ctx[key] = value.to_s
       end
     end
 
     def self.set_fiber_named_tuple(named_tuple : NamedTuple) : Nil
-      fiber_ctx = @@context[Fiber.current] ||= {} of String => String
+      fiber_ctx = Fiber.current.logit_fiber_context
       named_tuple.each do |key, value|
         fiber_ctx[key.to_s] = value.to_s
       end
     end
 
     def self.get_fiber(key : String) : String?
-      fiber_ctx = @@context[Fiber.current]?
-      fiber_ctx[key]? if fiber_ctx
+      fiber_ctx = Fiber.current.logit_fiber_context
+      fiber_ctx[key]?
     end
 
     def self.clear_fiber : Nil
-      @@context.delete(Fiber.current)
+      Fiber.current.logit_fiber_context.clear
     end
 
     # Method-local context (cleared after each method call)
     def self.set_method(**kwargs) : Nil
-      method_ctx = @@method_context[Fiber.current] ||= {} of String => String
+      method_ctx = Fiber.current.logit_method_context
       kwargs.each do |key, value|
         method_ctx[key.to_s] = value.to_s
       end
     end
 
     def self.set_method_hash(hash : Hash(String, String)) : Nil
-      method_ctx = @@method_context[Fiber.current] ||= {} of String => String
+      method_ctx = Fiber.current.logit_method_context
       hash.each do |key, value|
         method_ctx[key] = value.to_s
       end
     end
 
     def self.set_method_named_tuple(named_tuple : NamedTuple) : Nil
-      method_ctx = @@method_context[Fiber.current] ||= {} of String => String
+      method_ctx = Fiber.current.logit_method_context
       named_tuple.each do |key, value|
         method_ctx[key.to_s] = value.to_s
       end
     end
 
     def self.get_method(key : String) : String?
-      method_ctx = @@method_context[Fiber.current]?
-      method_ctx[key]? if method_ctx
+      method_ctx = Fiber.current.logit_method_context
+      method_ctx[key]?
     end
 
     def self.clear_method : Nil
-      @@method_context.delete(Fiber.current)
+      Fiber.current.logit_method_context.clear
     end
 
     # Temporary context (scoped to a block)
     def self.with_fiber_context(**kwargs, &)
-      old_context = (@@context[Fiber.current] ||= {} of String => String).dup
+      old_context = Fiber.current.logit_fiber_context.dup
       set_fiber(**kwargs)
       yield
     ensure
-      @@context[Fiber.current] = old_context if old_context
+      Fiber.current.logit_fiber_context.clear
+      Fiber.current.logit_fiber_context.merge!(old_context)
     end
 
     # Legacy methods for backwards compatibility
@@ -91,8 +89,8 @@ module Logit
     end
 
     def self.delete(key : String) : String?
-      method_ctx = @@method_context[Fiber.current]?
-      method_ctx.delete(key) if method_ctx
+      method_ctx = Fiber.current.logit_method_context
+      method_ctx.delete(key)
     end
 
     def self.clear : Nil
@@ -147,4 +145,10 @@ module Logit
   def self.clear_fiber_context : Nil
     Context.clear_fiber
   end
+end
+
+# Extend Fiber to hold context hashes
+class ::Fiber
+  property logit_fiber_context : Hash(String, String) { {} of String => String }
+  property logit_method_context : Hash(String, String) { {} of String => String }
 end

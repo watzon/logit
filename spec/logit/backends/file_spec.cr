@@ -74,7 +74,9 @@ describe Logit::Backend::File do
     it "closes the file handle" do
       path = "/tmp/logtest-#{Random::Secure.hex(8)}.log"
       begin
+        # Create unbuffered backend to test immediate close behavior
         backend = Logit::Backend::File.new(path)
+        backend.buffered = false
         backend.close
 
         # File should be closed, attempting to log should fail
