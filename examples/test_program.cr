@@ -6,9 +6,8 @@ Logit.configure do |config|
 end
 
 # Test class with annotated methods
+# No include needed! Just add @[Logit::Log] annotations.
 class Calculator
-  include Logit::Instrumentation
-
   @[Logit::Log]
   def add(x : Int32, y : Int32) : Int32
     puts "  [inside add] Computing #{x} + #{y}"
@@ -20,9 +19,6 @@ class Calculator
     puts "  [inside causes_error] Raising error..."
     raise "Intentional error for testing"
   end
-
-  # Call this macro AFTER all methods are defined - pass the current type
-  Logit.setup_instrumentation(Calculator)
 end
 
 # Run tests
