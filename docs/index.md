@@ -1,3 +1,8 @@
+---
+hide:
+  - navigation
+---
+
 # Logit
 
 > Annotation-based logging library for Crystal with OpenTelemetry support
@@ -41,48 +46,6 @@ Output:
     args: x=5, y=3
 ```
 
-## Features
-
-<div class="grid cards" markdown>
-
--   :material-pencil-outline:{ .lg .middle } **Annotation-Based**
-
-    ---
-
-    No manual log calls. Annotate methods and Logit handles the rest.
-
--   :material-chart-timeline:{ .lg .middle } **OpenTelemetry Compatible**
-
-    ---
-
-    W3C trace IDs, semantic attributes, and structured JSON output.
-
--   :material-filter-variant:{ .lg .middle } **Namespace Filtering**
-
-    ---
-
-    Control log levels per namespace with glob patterns.
-
--   :material-shield-lock:{ .lg .middle } **Redaction Support**
-
-    ---
-
-    Automatically redact sensitive data like passwords and tokens.
-
--   :material-console:{ .lg .middle } **Multiple Backends**
-
-    ---
-
-    Console and file backends with pluggable formatters.
-
--   :material-lightning-bolt:{ .lg .middle } **Fiber-Aware**
-
-    ---
-
-    Safe span context for concurrent Crystal applications.
-
-</div>
-
 ## Installation
 
 Add to your `shard.yml`:
@@ -101,7 +64,7 @@ shards install
 
 ## Next Steps
 
-- [Getting Started](getting-started.md) - Installation and basic usage
-- [Configuration](configuration.md) - Backends, formatters, and options
-- [Advanced Usage](advanced.md) - Context, redaction, and namespace filtering
+- [Getting Started](guide/getting-started.md) - Installation and basic usage
+- [Configuration](guide/configuration.md) - Backends, formatters, and options
+- [Advanced Usage](guide/advanced.md) - Context, redaction, and namespace filtering
 - [API Reference](api/index.md) - Complete API documentation

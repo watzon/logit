@@ -12,8 +12,53 @@ copyright = "Copyright &copy; 2025 watzon"
 
 extra_css = ["stylesheets/extra.css"]
 
+# Explicit navigation structure
+nav = [
+    {"Home" = "index.md"},
+    {"Guide" = [
+        "guide/index.md",
+        {"Getting Started" = "guide/getting-started.md"},
+        {"Configuration" = "guide/configuration.md"},
+        {"Advanced Usage" = "guide/advanced.md"},
+        {"Library Integration" = "guide/library_integration.md"},
+    ]},
+    {"API Reference" = [
+        "api/index.md",
+        {"Core" = [
+            {"@[Logit::Log]" = "api/logit-log.md"},
+            {"Span" = "api/logit-span.md"},
+            {"Event" = "api/logit-event.md"},
+            {"Tracer" = "api/logit-tracer.md"},
+            {"Config" = "api/logit-config.md"},
+        ]},
+        {"Backends" = [
+            {"Backend (base)" = "api/logit-backend.md"},
+            {"Console" = "api/logit-backend-console.md"},
+            {"File" = "api/logit-backend-file.md"},
+            {"OTLP" = "api/logit-backend-otlp.md"},
+        ]},
+        {"Formatters" = [
+            {"Formatter (base)" = "api/logit-formatter.md"},
+            {"Human" = "api/logit-formatter-human.md"},
+            {"JSON" = "api/logit-formatter-json.md"},
+        ]},
+        {"Types" = [
+            {"LogLevel" = "api/logit-loglevel.md"},
+            {"Status" = "api/logit-status.md"},
+            {"Attributes" = "api/logit-event-attributes.md"},
+            {"ExceptionInfo" = "api/logit-exceptioninfo.md"},
+            {"NamespaceBinding" = "api/logit-namespacebinding.md"},
+        ]},
+        {"Utilities" = [
+            {"Context" = "api/logit-context.md"},
+            {"Redaction" = "api/logit-redaction.md"},
+        ]},
+    ]},
+]
+
 [project.theme]
 language = "en"
+logo = "assets/logo.svg"
 
 features = [
     "content.code.annotate",
@@ -22,6 +67,7 @@ features = [
     "navigation.instant",
     "navigation.instant.prefetch",
     "navigation.tracking",
+    "navigation.tabs",
     "navigation.sections",
     "navigation.path",
     "navigation.top",

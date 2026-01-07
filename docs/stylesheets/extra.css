@@ -33,6 +33,11 @@
   font-weight: 600;
 }
 
+/* Header title spacing */
+.md-header__title {
+  margin-left: 0;
+}
+
 /* Table styling */
 .md-typeset table:not([class]) {
   border-radius: 8px;
