@@ -140,6 +140,44 @@ module MyLib
 end
 ```
 
+## Configuring Annotation Defaults
+
+By default, `@[Logit::Log]` logs method arguments, return values, and exceptions. Libraries may want to disable argument/return logging by default for privacy or performance reasons.
+
+Override the compile-time defaults **before** requiring your instrumented files:
+
+```crystal
+# my-lib/src/my-lib.cr
+
+# Override defaults BEFORE any instrumented code is required
+module Logit
+  LOG_ARGS_DEFAULT      = false  # Don't log arguments by default
+  LOG_RETURN_DEFAULT    = false  # Don't log return values by default
+  LOG_EXCEPTION_DEFAULT = true   # Still log exceptions
+end
+
+require "logit"
+require "./my-lib/**"
+```
+
+Now `@[Logit::Log]` will only log timing and exceptions. You can still explicitly enable argument/return logging per-method:
+
+```crystal
+class MyLib::Client
+  # Uses library defaults (no args/return)
+  @[Logit::Log]
+  def get(url : String) : Response
+    # ...
+  end
+
+  # Explicitly enable args for this method
+  @[Logit::Log(log_args: true)]
+  def debug_request(url : String, headers : Hash) : Response
+    # ...
+  end
+end
+```
+
 ## Best Practices
 
 ### 1. Never Configure Backends in Libraries

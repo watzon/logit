@@ -16,12 +16,17 @@ module Logit
           &{{block_arg[:name].id}} : {{block_arg[:type].id}}
         {% end %}
       ) {% if return_type && return_type != "" %}: {{return_type.id}}{% end %}
-        # Extract annotation options
+        # Extract annotation options (use global defaults if not specified)
+        # Check for user-defined defaults, otherwise use true
+        {% log_args_default = Logit.has_constant?(:LOG_ARGS_DEFAULT) ? Logit::LOG_ARGS_DEFAULT : true %}
+        {% log_return_default = Logit.has_constant?(:LOG_RETURN_DEFAULT) ? Logit::LOG_RETURN_DEFAULT : true %}
+        {% log_exception_default = Logit.has_constant?(:LOG_EXCEPTION_DEFAULT) ? Logit::LOG_EXCEPTION_DEFAULT : true %}
+
         # TODO: Support custom levels from annotation
         {% level_const = "Logit::LogLevel::Info" %}
-        {% log_args = ann && ann[:log_args] != nil ? ann[:log_args] : true %}
-        {% log_return = ann && ann[:log_return] != nil ? ann[:log_return] : true %}
-        {% log_exception = ann && ann[:log_exception] != nil ? ann[:log_exception] : true %}
+        {% log_args = ann && ann[:log_args] != nil ? ann[:log_args] : log_args_default %}
+        {% log_return = ann && ann[:log_return] != nil ? ann[:log_return] : log_return_default %}
+        {% log_exception = ann && ann[:log_exception] != nil ? ann[:log_exception] : log_exception_default %}
         {% span_name = ann && ann[:name] ? ann[:name] : method_name.stringify %}
         {% redact_list = ann && ann[:redact] ? ann[:redact] : [] of String %}
 

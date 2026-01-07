@@ -26,9 +26,9 @@
 #
 # The `@[Logit::Log]` annotation supports the following options:
 #
-# - `log_args` (Bool) - Whether to log method arguments (default: true)
-# - `log_return` (Bool) - Whether to log return values (default: true)
-# - `log_exception` (Bool) - Whether to log exceptions (default: true)
+# - `log_args` (Bool) - Whether to log method arguments (default: true, or LOG_ARGS_DEFAULT if defined)
+# - `log_return` (Bool) - Whether to log return values (default: true, or LOG_RETURN_DEFAULT if defined)
+# - `log_exception` (Bool) - Whether to log exceptions (default: true, or LOG_EXCEPTION_DEFAULT if defined)
 # - `name` (String) - Custom span name (default: method name)
 # - `level` (LogLevel) - Log level for this method (default: Info)
 # - `redact` (Array(String)) - Argument names to redact from logs
@@ -45,6 +45,25 @@
 # See `Logit.configure` for configuration options and `Logit::Backend` for
 # available output backends.
 module Logit
+  # Compile-time defaults for annotation behavior.
+  #
+  # These constants are NOT defined by Logit. If you want to change the defaults,
+  # define them BEFORE requiring logit:
+  #
+  # ```crystal
+  # # In your app's entry point, BEFORE requiring logit:
+  # module Logit
+  #   LOG_ARGS_DEFAULT      = false  # Don't log arguments by default
+  #   LOG_RETURN_DEFAULT    = false  # Don't log return values by default
+  #   LOG_EXCEPTION_DEFAULT = false  # Don't log exceptions by default
+  # end
+  #
+  # require "logit"
+  # require "./my_app"
+  # ```
+  #
+  # If not defined, all default to `true`.
+
   # Annotation to mark methods for automatic logging instrumentation.
   #
   # When a method is annotated with `@[Logit::Log]`, Logit automatically:
@@ -101,4 +120,5 @@ require "./backends/otlp"
 require "./redaction"
 require "./context"
 require "./config"
+require "./api"
 require "./macros/register"
