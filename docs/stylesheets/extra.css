@@ -38,6 +38,11 @@
   margin-left: 0;
 }
 
+[data-md-color-scheme="slate"] .md-header__button.md-logo img,
+[data-md-color-scheme="slate"] .md-nav__button.md-logo img {
+  filter: invert(1);
+}
+
 /* Table styling */
 .md-typeset table:not([class]) {
   border-radius: 8px;
