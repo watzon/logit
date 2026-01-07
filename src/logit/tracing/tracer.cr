@@ -1,4 +1,5 @@
 require "../backend"
+require "../backends/null"
 require "../events/event"
 require "../utils/safe_output"
 
@@ -115,10 +116,14 @@ module Logit
     # Returns the default tracer.
     #
     # If no tracer has been configured via `Logit.configure`, creates a
-    # default tracer with a console backend at Info level.
+    # default tracer with a `Backend::Null` that discards all events.
+    #
+    # This ensures libraries using Logit don't impose logging on applications.
+    # Applications can enable logging by calling `Logit.configure` with the
+    # desired backends.
     def self.default : Tracer
       @@default_mutex.synchronize do
-        @@default ||= new("default").tap { |t| t.add_backend(Backend::Console.new) }
+        @@default ||= new("default").tap { |t| t.add_backend(Backend::Null.new) }
       end
     end
 

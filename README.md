@@ -9,9 +9,13 @@
 - [Usage](#usage)
   - [Basic Setup](#basic-setup)
   - [Annotation-Based Instrumentation](#annotation-based-instrumentation)
+  - [Manual Logging API](#manual-logging-api)
+  - [Crystal Log Integration](#crystal-log-integration)
+  - [Span Events](#span-events)
   - [Namespace Filtering](#namespace-filtering)
   - [Configuration Options](#configuration-options)
   - [OpenTelemetry Attributes](#opentelemetry-attributes)
+- [Library Integration](#library-integration)
 - [API](#api)
 - [Contributing](#contributing)
 - [License](#license)
@@ -91,6 +95,111 @@ Output (Human formatter):
 ```
 [INFO] 2025-01-05T21:30:00.123Z Calculator.add duration=2ms args={x: 5, y: 3} return=8
 [INFO] 2025-01-05T21:30:00.125Z Calculator.divide duration=1ms args={x: 10, y: 2} return=5.0
+```
+
+### Manual Logging API
+
+For libraries or situations where annotations aren't appropriate, Logit provides a manual logging API similar to Crystal's built-in `Log`:
+
+```crystal
+# String-based logging
+Logit.info("Processing started")
+Logit.debug("User authenticated", user_id: 123)
+Logit.warn("Slow query", duration_ms: 450, query: sql)
+
+# Lazy evaluation - block only executed if logging is enabled
+Logit.debug { "Expensive debug info: #{expensive_operation()}" }
+
+# Exception logging
+begin
+  risky_operation
+rescue ex
+  Logit.exception("Operation failed", ex)
+  raise ex
+end
+```
+
+Manual log calls automatically inherit trace context from any active span:
+
+```crystal
+@[Logit::Log]
+def process_order(order_id : Int64)
+  # This log call inherits trace_id and span_id from the annotation
+  Logit.info { "Starting order processing" }
+  
+  validate_order(order_id)
+  
+  Logit.info { "Order validation complete" }
+end
+```
+
+### Crystal Log Integration
+
+Logit can capture all calls to Crystal's built-in `Log` library and route them through its backends, enabling unified export to OpenTelemetry collectors.
+
+```crystal
+require "logit"
+require "logit/integrations/crystal_log_adapter"
+
+# Configure Logit first
+Logit.configure do |config|
+  config.console(Logit::LogLevel::Debug)
+  config.otlp("http://localhost:4318/v1/logs")
+end
+
+# Install the adapter
+Logit::Integrations::CrystalLogAdapter.install
+
+# All Log.info/debug/etc calls now flow through Logit
+Log.info { "This is captured by Logit and exported to OTLP" }
+```
+
+When the adapter is installed, Crystal `Log` calls automatically inherit Logit's trace context:
+
+```crystal
+@[Logit::Log]
+def process_request
+  # This Log call inherits the trace context from the span
+  Log.info { "Processing request" }
+  
+  do_work
+  
+  Log.info { "Request complete" }
+end
+```
+
+### Span Events
+
+For long-running operations, you can add intermediate events to a span without creating separate spans:
+
+```crystal
+@[Logit::Log]
+def process_large_file(path : String) : Result
+  span = Logit::Span.current
+  
+  span.add_event("file.opened", path: path)
+  
+  data = read_file(path)
+  span.add_event("file.read", bytes: data.size)
+  
+  result = process_data(data)
+  span.add_event("file.processed", records: result.size)
+  
+  result
+end
+```
+
+Span events appear in the JSON output:
+
+```json
+{
+  "name": "process_large_file",
+  "events": [
+    {"name": "file.opened", "timestamp": "...", "attributes": {"path": "/data/file.csv"}},
+    {"name": "file.read", "timestamp": "...", "attributes": {"bytes": 1024}},
+    {"name": "file.processed", "timestamp": "...", "attributes": {"records": 42}}
+  ]
+}
 ```
 
 ### Namespace Filtering
@@ -305,6 +414,7 @@ Logit::Tracer.default.emit(event)
 - **`Logit::Backend::Console`** - Outputs to STDOUT/STDERR
 - **`Logit::Backend::File`** - Outputs to a file
 - **`Logit::Backend::OTLP`** - Exports to OpenTelemetry collectors via OTLP/HTTP
+- **`Logit::Backend::Null`** - Discards all events (default backend)
 
 ### Formatters
 
@@ -322,6 +432,64 @@ attributes.set("number", 42)
 attributes.set("bool", true)
 attributes.set_object("nested", {key: "value", count: 1})
 ```
+
+### Manual Logging Methods
+
+Direct logging without annotations:
+
+```crystal
+Logit.trace("message")      # or Logit.trace { "lazy message" }
+Logit.debug("message")      # or Logit.debug { "lazy message" }
+Logit.info("message")       # or Logit.info { "lazy message" }
+Logit.warn("message")       # or Logit.warn { "lazy message" }
+Logit.error("message")      # or Logit.error { "lazy message" }
+Logit.fatal("message")      # or Logit.fatal { "lazy message" }
+Logit.exception("msg", ex)  # Log exception with stack trace
+```
+
+## Library Integration
+
+Logit is designed to be library-friendly. By default, it uses a `NullBackend` that discards all events, so libraries can use Logit without imposing logging on applications.
+
+### In Your Library
+
+```crystal
+# my-lib/src/my-lib.cr
+require "logit"
+
+module MyLib
+  def self.query_database(sql : String) : Array(Result)
+    # Use manual logging - will be silent unless app configures Logit
+    Logit.debug { "Executing SQL: #{sql}" }
+    
+    results = DB.query(sql)
+    
+    Logit.info { "Query returned #{results.size} results" }
+    results
+  end
+end
+```
+
+### In Your Application
+
+```crystal
+require "logit"
+
+# Configure Logit to enable library logging
+Logit.configure do |config|
+  config.console(Logit::LogLevel::Info)
+  
+  # Enable debug logs for specific libraries
+  config.bind "MyLib::**", Logit::LogLevel::Debug, console
+end
+
+require "my-lib"
+
+# Now library logs will appear
+MyLib.query_database("SELECT * FROM users")
+```
+
+See [docs/library_integration.md](docs/library_integration.md) for detailed guidance.
 
 ## Contributing
 

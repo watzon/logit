@@ -89,6 +89,12 @@ module Logit
     # Exception information if an error occurred during this span.
     property exception : ExceptionInfo?
 
+    # Span events that occurred during this span's lifetime.
+    #
+    # These are intermediate logs attached to a span, similar to
+    # OpenTelemetry's Span Events. Use `add_event` to add events.
+    getter events : Array(SpanEvent) = [] of SpanEvent
+
     # Creates a new span with the given name.
     #
     # Automatically inherits the trace ID from the current span (if any),
@@ -160,6 +166,61 @@ module Logit
       fiber_stack.pop?
     end
 
+    # Adds a span event (intermediate log within a span).
+    #
+    # This allows logging important events during long-running operations
+    # without creating separate spans. Events are attached to this span
+    # and included when the span is converted to an Event.
+    #
+    # ## Usage
+    #
+    # ```crystal
+    # @[Logit::Log]
+    # def process_large_file(path : String) : Result
+    #   span = Logit::Span.current
+    #
+    #   span.add_event("file.opened", path: path)
+    #
+    #   results = process_chunks(path)
+    #
+    #   span.add_event("file.processed",
+    #     path: path,
+    #     chunks: results.size
+    #   )
+    #
+    #   results
+    # end
+    # ```
+    #
+    # ## OpenTelemetry Compatibility
+    #
+    # Span events map directly to OpenTelemetry Span Events, allowing for
+    # rich observability without creating separate spans for every operation.
+    def add_event(name : String, **attributes) : Nil
+      event_attrs = Event::Attributes.new
+
+      attributes.each do |key, value|
+        case value
+        when String
+          event_attrs.set(key.to_s, value)
+        when Int32, Int64
+          event_attrs.set(key.to_s, value.to_i64)
+        when Float32, Float64
+          event_attrs.set(key.to_s, value.to_f64)
+        when Bool
+          event_attrs.set(key.to_s, value)
+        else
+          event_attrs.set(key.to_s, value.to_s)
+        end
+      end
+
+      @events << SpanEvent.new(
+        name: name,
+        timestamp: Time.utc,
+        attributes: event_attrs
+      )
+    end
+
     # Converts this span to an Event for logging.
     #
     # Called automatically when a span completes. You typically don't need
@@ -183,7 +244,48 @@ module Logit
       event.attributes = @attributes
       event.exception = @exception
       event.duration_ms = duration
+      event.span_events = @events
       event
+    end
+  end
+
+  # Represents an event that occurred during a span's lifetime.
+  #
+  # Span events are intermediate logs attached to a span, similar to
+  # OpenTelemetry's Span Events. They capture significant moments during
+  # a span's execution without creating separate spans.
+  #
+  # ## Example
+  #
+  # ```crystal
+  # span.add_event("cache.hit", key: "user:123")
+  # span.add_event("db.query.started", table: "users")
+  # span.add_event("db.query.completed", rows: 42)
+  # ```
+  struct SpanEvent
+    # Name of this event (e.g., "cache.hit", "db.query.started").
+    getter name : String
+
+    # When this event occurred.
+    getter timestamp : Time
+
+    # Structured attributes for this event.
+    getter attributes : Event::Attributes
+
+    def initialize(@name : String, @timestamp : Time, @attributes : Event::Attributes)
+    end
+
+    # Serialize to JSON
+    def to_json(json : JSON::Builder) : Nil
+      json.object do
+        json.field "name", @name
+        json.field "timestamp", @timestamp.to_utc.to_s("%Y-%m-%dT%H:%M:%S.%6NZ")
+        unless @attributes.values.empty?
+          json.field "attributes" do
+            @attributes.to_json(json)
+          end
+        end
+      end
     end
   end
 end

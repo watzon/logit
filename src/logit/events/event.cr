@@ -98,6 +98,12 @@ module Logit
     # Exception information if an error occurred.
     property exception : ExceptionInfo?
 
+    # Span events that occurred during the operation.
+    #
+    # These are intermediate logs attached to the span, similar to
+    # OpenTelemetry's Span Events.
+    property span_events : Array(Logit::SpanEvent) = [] of Logit::SpanEvent
+
     # Creates a new event with the given parameters.
     def initialize(@trace_id, @span_id, @name, @level, @code_file, @code_line,
                    @method_name, @class_name, @parent_span_id = nil)
@@ -223,6 +229,17 @@ module Logit
               json.field "type", ex.type
               json.field "message", ex.message
               json.field "stacktrace", ex.stacktrace if ex.stacktrace
+            end
+          end
+        end
+
+        # Span events
+        unless @span_events.empty?
+          json.field "events" do
+            json.array do
+              @span_events.each do |event|
+                event.to_json(json)
+              end
             end
           end
         end
