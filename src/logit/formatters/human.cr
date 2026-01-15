@@ -67,6 +67,12 @@ module Logit
           io << ")"
         end
 
+        # Log message (from Crystal Log adapter or manual Logit.info calls)
+        if log_message = event.attributes.get("log.message")
+          io << " "
+          io << log_message.as_s
+        end
+
         # Return value on main line (special handling for code.return)
         if return_value = event.attributes.get("code.return")
           io << " "
@@ -76,13 +82,15 @@ module Logit
           format_value(io, return_value)
         end
 
-        # Code location (basename only) - on main line
-        io << "  "
-        io << "\e[90m"
-        io << basename(event.code_file)
-        io << ":"
-        io << event.code_line
-        io << "\e[0m"
+        # Code location (basename only) - on main line, only if we have valid info
+        if !event.code_file.empty? && event.code_line > 0
+          io << "  "
+          io << "\e[90m"
+          io << basename(event.code_file)
+          io << ":"
+          io << event.code_line
+          io << "\e[0m"
+        end
 
         # Arguments on second line (special handling for code.arguments)
         if args_value = event.attributes.get("code.arguments")
@@ -103,6 +111,22 @@ module Logit
           if ex.message && !ex.message.empty?
             io << ": "
             io << ex.message
+          end
+          # Print stack trace if available
+          if stacktrace = ex.stacktrace
+            stacktrace.first(15).each do |frame|
+              io << "\n"
+              io << "\e[90m"
+              io << "      "
+              io << frame
+              io << "\e[0m"
+            end
+            if stacktrace.size > 15
+              io << "\n"
+              io << "\e[90m"
+              io << "      ... and #{stacktrace.size - 15} more frames"
+              io << "\e[0m"
+            end
           end
         end
       end
