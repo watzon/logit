@@ -31,6 +31,14 @@ module Logit
     # Log.info { "This is captured by Logit" }
     # ```
     #
+    # ## Protection Against Library Interference
+    #
+    # Once installed, the adapter monkeypatches `Log.setup`, `Log.setup_from_env`,
+    # and `Log::Builder#bind` to automatically reinstall itself after any library
+    # attempts to reconfigure Crystal's logging. This ensures that all logs
+    # continue to flow through Logit even when third-party libraries call
+    # `Log.setup_from_env` at require time.
+    #
     # ## Trace Context Integration
     #
     # When installed, Crystal Log calls automatically inherit trace context
@@ -64,6 +72,9 @@ module Logit
     # ```
     class CrystalLogAdapter < ::Log::Backend
       @@installed : Bool = false
+      @@adapter : CrystalLogAdapter? = nil
+      @@dispatch_mode : ::Log::DispatchMode = :sync
+      @@intercepting : Bool = false
 
       def initialize(dispatch_mode : ::Log::DispatchMode = :async)
         super(dispatch_mode)
@@ -129,6 +140,11 @@ module Logit
       # This replaces the default Log backend so all Log calls flow through Logit.
       # You should configure Logit backends BEFORE calling install.
       #
+      # Once installed, the adapter will automatically reinstall itself if any
+      # library calls `Log.setup`, `Log.setup_from_env`, or modifies the Log
+      # builder directly. This protects against third-party libraries that
+      # configure logging at require time.
+      #
       # - *dispatch_mode*: How to dispatch log entries. Use `:sync` for synchronous
       #   (safer but may block) or `:async` for asynchronous (better performance).
       #   Default is `:sync` for reliability.
@@ -146,35 +162,74 @@ module Logit
       # Logit::Integrations::CrystalLogAdapter.install(dispatch_mode: :async)
       # ```
       def self.install(dispatch_mode : ::Log::DispatchMode = :sync) : Nil
-        return if @@installed
+        @@dispatch_mode = dispatch_mode
 
         # Create new adapter instance with specified dispatch mode
-        adapter = new(dispatch_mode)
+        @@adapter = new(dispatch_mode)
 
-        # Use Log.setup to configure all sources to use our adapter
-        # We bind at Trace level to capture everything - Logit handles filtering
-        ::Log.setup do |c|
-          c.bind "*", ::Log::Severity::Trace, adapter
-        end
+        # Install without recursion guard (this is the real install)
+        do_install
 
         @@installed = true
       end
 
+      # Internal method to actually install the adapter into Log.
+      # Called by install and by the intercepted Log methods.
+      protected def self.do_install : Nil
+        return unless (adapter = @@adapter)
+
+        # Use Log.setup to configure all sources to use our adapter
+        # We bind at Trace level to capture everything - Logit handles filtering
+        #
+        # Set intercepting flag to prevent infinite recursion when our own
+        # Log.setup call triggers the interceptor
+        @@intercepting = true
+        begin
+          ::Log.setup do |c|
+            c.bind "*", ::Log::Severity::Trace, adapter
+          end
+        ensure
+          @@intercepting = false
+        end
+      end
+
+      # Reinstall the adapter after external code modified Log configuration.
+      # This is called by the monkeypatched Log methods.
+      def self.reinstall_if_needed : Nil
+        return unless @@installed
+        return if @@intercepting
+
+        do_install
+      end
+
       # Uninstall the adapter and restore default Log behavior.
       #
-      # This resets Crystal Log to its default configuration (Info to STDOUT).
+      # This resets Crystal Log to its default configuration (Info to STDOUT)
+      # and removes the monkeypatches that protect against library interference.
       def self.uninstall : Nil
         return unless @@installed
 
         # Reset to default Log configuration
-        ::Log.setup(:info)
+        @@intercepting = true
+        begin
+          ::Log.setup(:info)
+        ensure
+          @@intercepting = false
+        end
 
         @@installed = false
+        @@adapter = nil
       end
 
       # Check if the adapter is currently installed.
       def self.installed? : Bool
         @@installed
+      end
+
+      # Check if we're currently in the middle of an intercept operation.
+      # Used by the monkeypatched methods to avoid infinite recursion.
+      def self.intercepting? : Bool
+        @@intercepting
       end
 
       private def configured? : Bool
@@ -200,5 +255,60 @@ module Logit
         value.to_s
       end
     end
+  end
+end
+
+# Monkeypatch Crystal's Log module to intercept configuration changes.
+# This ensures Logit's adapter is reinstalled after any library tries to
+# reconfigure logging (e.g., by calling Log.setup_from_env at require time).
+class ::Log
+  # Intercept Log.setup to reinstall our adapter after external configuration
+  def self.setup(*, builder : ::Log::Builder = ::Log.builder, &) : Nil
+    # Call the original implementation
+    previous_def(builder: builder) { |c| yield c }
+
+    # Reinstall Logit adapter if it was installed
+    Logit::Integrations::CrystalLogAdapter.reinstall_if_needed
+  end
+
+  # Intercept Log.setup with sources parameter
+  def self.setup(sources : String = "*", level : ::Log::Severity = ::Log::Severity::Info,
+                 backend : ::Log::Backend = IOBackend.new, *,
+                 builder : ::Log::Builder = ::Log.builder) : Nil
+    # Call the original implementation
+    previous_def(sources, level, backend, builder: builder)
+
+    # Reinstall Logit adapter if it was installed
+    Logit::Integrations::CrystalLogAdapter.reinstall_if_needed
+  end
+
+  # Intercept Log.setup with just level parameter
+  def self.setup(level : ::Log::Severity = ::Log::Severity::Info,
+                 backend : ::Log::Backend = IOBackend.new, *,
+                 builder : ::Log::Builder = ::Log.builder) : Nil
+    # Call the original implementation
+    previous_def(level, backend, builder: builder)
+
+    # Reinstall Logit adapter if it was installed
+    Logit::Integrations::CrystalLogAdapter.reinstall_if_needed
+  end
+
+  # Intercept Log.setup_from_env to reinstall our adapter after environment-based configuration
+  def self.setup_from_env(*, builder : ::Log::Builder = ::Log.builder,
+                          default_level : ::Log::Severity = ::Log::Severity::Info,
+                          default_sources = "*",
+                          log_level_env = "LOG_LEVEL",
+                          backend = ::Log::IOBackend.new) : Nil
+    # Call the original implementation
+    previous_def(
+      builder: builder,
+      default_level: default_level,
+      default_sources: default_sources,
+      log_level_env: log_level_env,
+      backend: backend
+    )
+
+    # Reinstall Logit adapter if it was installed
+    Logit::Integrations::CrystalLogAdapter.reinstall_if_needed
   end
 end
